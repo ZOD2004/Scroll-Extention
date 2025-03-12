@@ -1,5 +1,11 @@
 console.log("Content Script: Injected and running...");
 
+let isPaused = false;
+let isStopped = false;
+let scrollCount = 0;
+let totalScrollSteps = 0;
+let timePerStep = 0;
+
 // Function to count words in the given text
 function countWordsInText(text) {
     const words = text.match(/\w+('\w+)?/g);
@@ -9,14 +15,12 @@ function countWordsInText(text) {
 // Function to check if an element is visible in the viewport
 function isElementVisible(element) {
     const rect = element.getBoundingClientRect();
-    return (
-        rect.top >= 0 &&
-        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
-    );
+    return rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
 }
 
 // Function to calculate visible words
 function calculateVisibleWords() {
+    console.log("Calculating visible words...");
     const elements = document.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, div');
     let totalWordCount = 0;
 
@@ -30,137 +34,166 @@ function calculateVisibleWords() {
     return totalWordCount;
 }
 
-// Function to create a notification box for pause & countdown
-function createNotificationBox() {
-    let notification = document.getElementById("scrollNotification");
-    if (!notification) {
-        notification = document.createElement("div");
-        notification.id = "scrollNotification";
-        notification.style.position = "fixed";
-        notification.style.top = "10px";
-        notification.style.left = "50%";
-        notification.style.transform = "translateX(-50%)";
-        notification.style.backgroundColor = "black";
-        notification.style.color = "white";
-        notification.style.padding = "10px 15px";
-        notification.style.borderRadius = "8px";
-        notification.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)";
-        notification.style.fontSize = "16px";
-        notification.style.fontWeight = "bold";
-        notification.style.zIndex = "10000";
-        notification.style.display = "none";
-        document.body.appendChild(notification);
-    }
-    return notification;
-}
-
 // Function to smoothly scroll the page
 function smoothScroll() {
-    window.scrollBy({ top: window.innerHeight, behavior: "smooth" });
+    window.scrollBy({ top: window.innerHeight / 2, behavior: "smooth" });
 }
 
-// Function to calculate scrolling time
-function calculateScrollMovements(totalWordCount, wpm) {
-    const wordsPerMinute = wpm || 200;
-    const readingTimeInSeconds = (totalWordCount / wordsPerMinute) * 60;
-    const visibleHeight = window.innerHeight;
-    const fullPageHeight = document.documentElement.scrollHeight;
-    const scrollMovements = Math.ceil(fullPageHeight / visibleHeight);
-    const scrollTimePerMovement = readingTimeInSeconds / scrollMovements;
+// Function to calculate scrolling time based on WPM
+function calculateScrollTiming(totalWords, wpm) {
+    const readingTimeInSeconds = (totalWords / wpm) * 60;
+    const scrollSteps = Math.ceil(document.documentElement.scrollHeight / (window.innerHeight / 2));
+    const timePerStep = (readingTimeInSeconds / scrollSteps) * 1000; // Convert to ms
 
-    console.log("Scroll movements:", scrollMovements);
-    console.log("Time per scroll movement:", scrollTimePerMovement);
-
-    return { scrollMovements, scrollTimePerMovement };
+    console.log(`Scroll Steps: ${scrollSteps}, Time Per Step: ${timePerStep.toFixed(2)}ms`);
+    return { scrollSteps, timePerStep };
 }
 
-// Function to start scrolling with countdown notifications
-function simulateScrolling(scrollMovements, scrollTimePerMovement) {
-    let scrollCount = 0;
-    let isPaused = false;
-    let isStopped = false;
-    let notificationBox = createNotificationBox();
-    const countdownTime = 4; // Countdown before scrolling
+// Function to create the floating WPM control box
+function createControlBox(updateWPM, pauseScrolling, resumeScrolling, stopScrolling) {
+    let controlBox = document.getElementById("scrollControlBox");
+    if (!controlBox) {
+        controlBox = document.createElement("div");
+        controlBox.id = "scrollControlBox";
+        controlBox.style.position = "fixed";
+        controlBox.style.bottom = "15px";
+        controlBox.style.right = "15px";
+        controlBox.style.backgroundColor = "#333";
+        controlBox.style.color = "white";
+        controlBox.style.padding = "8px";
+        controlBox.style.borderRadius = "8px";
+        controlBox.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+        controlBox.style.display = "flex";
+        controlBox.style.alignItems = "center";
+        controlBox.style.gap = "5px";
+        controlBox.style.fontSize = "14px";
+        controlBox.style.fontWeight = "bold";
+        controlBox.style.zIndex = "10000";
 
-    console.log("Starting scroll simulation...");
+        // WPM Display
+        const wpmLabel = document.createElement("span");
+        wpmLabel.id = "wpmValue";
+        wpmLabel.innerText = "WPM: 200";
 
-    function startCountdown(callback) {
-        let countdown = countdownTime;
-        notificationBox.style.display = "block";
+        // Timer Display
+        const timerLabel = document.createElement("span");
+        timerLabel.id = "timerLabel";
+        timerLabel.innerText = "Time: 0s";
 
-        function updateCountdown() {
-            if (isPaused || isStopped) return;
-            notificationBox.innerText = `Scrolling in ${countdown}...`;
-            if (countdown > 0) {
-                countdown--;
-                setTimeout(updateCountdown, 1000);
-            } else {
-                notificationBox.style.display = "none";
-                callback(); // Scroll after countdown
-            }
+        // Decrease WPM Button
+        const decreaseBtn = document.createElement("button");
+        decreaseBtn.innerText = "−";
+        decreaseBtn.style.cssText = "background:#555;color:white;border:none;padding:4px 6px;cursor:pointer;border-radius:5px;";
+        decreaseBtn.onclick = () => updateWPM(-5);
+
+        // Increase WPM Button
+        const increaseBtn = document.createElement("button");
+        increaseBtn.innerText = "+";
+        increaseBtn.style.cssText = "background:#555;color:white;border:none;padding:4px 6px;cursor:pointer;border-radius:5px;";
+        increaseBtn.onclick = () => updateWPM(5);
+
+        // Pause Button
+        const pauseBtn = document.createElement("button");
+        pauseBtn.innerText = "Pause";
+        pauseBtn.style.cssText = "background:#f0ad4e;color:white;border:none;padding:4px 8px;cursor:pointer;border-radius:5px;";
+        pauseBtn.onclick = pauseScrolling;
+
+        // Resume Button
+        const resumeBtn = document.createElement("button");
+        resumeBtn.innerText = "Resume";
+        resumeBtn.style.cssText = "background:#5cb85c;color:white;border:none;padding:4px 8px;cursor:pointer;border-radius:5px;";
+        resumeBtn.onclick = resumeScrolling;
+
+        // Stop Button
+        const stopBtn = document.createElement("button");
+        stopBtn.innerText = "Stop";
+        stopBtn.style.cssText = "background:#d9534f;color:white;border:none;padding:4px 8px;cursor:pointer;border-radius:5px;";
+        stopBtn.onclick = stopScrolling;
+
+        // Add elements to control box
+        controlBox.append(decreaseBtn, wpmLabel, increaseBtn, pauseBtn, resumeBtn, stopBtn, timerLabel);
+        document.body.appendChild(controlBox);
+
+        return { controlBox, wpmLabel, timerLabel };
+    }
+    return { controlBox, wpmLabel: document.getElementById("wpmValue"), timerLabel: document.getElementById("timerLabel") };
+}
+
+// Function to start scrolling with WPM control
+function simulateScrolling(scrollSteps, timePerStep) {
+    scrollCount = 0;
+    totalScrollSteps = scrollSteps;
+    isPaused = false;
+    isStopped = false;
+
+    let wpm = 200;
+
+    // Function to update WPM dynamically
+    function updateWPM(change) {
+        const newWPM = wpm + change;
+        if (newWPM >= 50 && newWPM <= 1000) {
+            wpm = newWPM;
+            wpmLabel.innerText = `WPM: ${wpm}`;
+
+            // Recalculate scroll timing with new WPM
+            const totalWords = calculateVisibleWords();
+            const timing = calculateScrollTiming(totalWords, wpm);
+            timePerStep = timing.timePerStep;
         }
-        updateCountdown();
     }
 
+    // Function to pause scrolling
+    function pauseScrolling() {
+        isPaused = true;
+        console.log("Scrolling paused.");
+    }
+
+    // Function to resume scrolling
+    function resumeScrolling() {
+        if (isPaused) {
+            isPaused = false;
+            console.log("Scrolling resumed.");
+            scrollLoop();
+        }
+    }
+
+    // Function to stop scrolling
+    function stopScrolling() {
+        isStopped = true;
+        controlBox.remove();
+        console.log("Scrolling manually stopped.");
+    }
+
+    // Create control box and store references
+    const { controlBox, wpmLabel, timerLabel } = createControlBox(updateWPM, pauseScrolling, resumeScrolling, stopScrolling);
+
+    // Scrolling function
     function scrollLoop() {
-        if (isStopped || scrollCount >= scrollMovements) {
-            notificationBox.style.display = "none";
+        if (isStopped || scrollCount >= totalScrollSteps) {
+            controlBox.remove();
             console.log("Scrolling completed or stopped.");
             return;
         }
 
         if (!isPaused) {
-            startCountdown(() => {
-                smoothScroll();
-                scrollCount++;
-                console.log("Scrolled:", scrollCount, "out of", scrollMovements);
-                setTimeout(scrollLoop, scrollTimePerMovement * 1000);
-            });
+            smoothScroll();
+            scrollCount++;
+            timerLabel.innerText = `Time: ${((totalScrollSteps - scrollCount) * timePerStep / 1000).toFixed(1)}s`;
+
+            console.log(`Scrolled ${scrollCount} out of ${totalScrollSteps}`);
         }
+
+        setTimeout(scrollLoop, timePerStep);
     }
 
-    scrollLoop(); // Start scrolling
-
-    // Pause/Resume scrolling but only if NOT stopped
-    window.addEventListener("keydown", (event) => {
-        if (event.key === 'p' || event.key === 'P') {
-            event.preventDefault();
-            if (isStopped) {
-                console.log("Scrolling already stopped. Ignoring pause.");
-                return; // Do nothing if stopped
-            }
-            isPaused = !isPaused;
-            if (isPaused) {
-                notificationBox.innerText = "Scrolling is paused. Press 'P' to resume.";
-                notificationBox.style.display = "block";
-                console.log("Paused scrolling.");
-            } else {
-                notificationBox.style.display = "none";
-                console.log("Resumed scrolling.");
-                scrollLoop();
-            }
-        }
-    });
-
-    // Stop scrolling if the user manually scrolls
-    window.addEventListener("wheel", () => {
-        if (!isStopped) {
-            isStopped = true;
-            isPaused = false; // Prevent pause after stopping
-            notificationBox.style.display = "none"; // Hide notification
-            console.log("Scrolling stopped by user.");
-        }
-    });
+    scrollLoop();
 }
 
 // Listen for messages from popup.js to start scrolling
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "startScrolling") {
-        console.log("Message received: startScrolling");
-        const wpm = message.wpm;
-        const totalWordCount = calculateVisibleWords();
-
-        const { scrollMovements, scrollTimePerMovement } = calculateScrollMovements(totalWordCount, wpm);
-        simulateScrolling(scrollMovements, scrollTimePerMovement);
+        const totalWords = calculateVisibleWords();
+        const { scrollSteps, timePerStep } = calculateScrollTiming(totalWords, message.wpm);
+        simulateScrolling(scrollSteps, timePerStep);
     }
 });
