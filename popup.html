@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Counter</title>
+    <style>
+        /* Body Styling */
+        body {
+            background-color: #2d2d2d;  /* Dark background */
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;  /* Full height */
+            text-align: center;
+            color: #f5f5f5;  /* Light text color for contrast */
+        }
+
+        /* Container Styling */
+        .container {
+            background-color: #333;  /* Dark container */
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 300px;
+            padding: 20px;
+            text-align: center;
+            animation: fadeIn 0.5s ease-out;
+            height: 300px;  /* Fixed height for better alignment */
+        }
+
+        /* Heading */
+        h1 {
+            font-size: 24px;
+            color: #4caf50;  /* Greenish color for a refreshing look */
+            margin-bottom: 20px;
+        }
+
+        /* Input Wrapper for custom buttons */
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Number Input Styling */
+        input[type="number"] {
+            width: 100px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #555;
+            border-radius: 5px;
+            font-size: 16px;
+            background-color: #444;  /* Dark background for input */
+            color: #fff;  /* White text for input */
+            text-align: center;
+            transition: border-color 0.3s ease;
+            -webkit-appearance: none; /* Remove increment/decrement arrows */
+            -moz-appearance: textfield; /* Firefox */
+        }
+
+        input[type="number"]:focus {
+            border-color: #4caf50;  /* Green border on focus */
+            outline: none;
+        }
+
+        /* Button Styling */
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4caf50;  /* Green button */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;  /* Darker green on hover */
+        }
+
+        /* Custom Increment/Decrement Buttons */
+        .btn-increment, .btn-decrement {
+            background-color: #555;
+            color: #fff;
+            font-size: 15px;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            margin: 0 7px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-increment:hover, .btn-decrement:hover {
+            background-color: #4caf50;  /* Green color on hover */
+        }
+
+        /* Message Styling */
+        .message {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #ccc;  /* Light gray text for the messages */
+            font-style: italic;
+        }
+
+        /* Animation for fadeIn */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Visible Word Counter</h1>
+        <label for="wpm">Enter WPM (Words Per Minute):</label>
+        <h6>Give the WPM that you are comfortable with</h6>
+        <!-- Input wrapper for number input and buttons -->
+        <div class="input-wrapper">
+            <button class="btn-decrement" id="decrement">-</button>
+            <input type="number" id="wpm" value="200" min="50" max="600">
+            <button class="btn-increment" id="increment">+</button>
+        </div>
+        
+        <button id="countBtn">Start Scrolling</button>
+        <div class="message">Press <strong>P</strong> to pause or play</div>
+        <div class="message">Press <strong>Q</strong> to quit or stop</div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
